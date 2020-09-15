@@ -1,6 +1,11 @@
 package com.johnsonsu.rnsoundplayer;
 
 import android.media.MediaPlayer;
+import android.media.AudioManager;
+import android.media.MediaPlayer.TrackInfo;
+import android.content.Context;
+import android.media.AudioFocusRequest;
+import android.media.AudioAttributes;
 import android.media.MediaPlayer.OnCompletionListener;
 import android.media.MediaPlayer.OnPreparedListener;
 import android.net.Uri;
@@ -31,10 +36,52 @@ public class RNSoundPlayerModule extends ReactContextBaseJavaModule {
   private MediaPlayer mediaPlayer;
   private float volume;
 
+  private boolean isTrackReady = false;
+  private AudioManager mAudioManager;
+  private AudioManager.OnAudioFocusChangeListener afChangeListener;
+  private AudioFocusRequest duckAudioRequestBuilder;
+  private AudioAttributes mPlaybackAttributes = new AudioAttributes.Builder()
+  .setUsage(AudioAttributes.USAGE_MEDIA)
+  .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+  .build();
+
   public RNSoundPlayerModule(ReactApplicationContext reactContext) {
     super(reactContext);
     this.reactContext = reactContext;
     this.volume = 1.0f;
+    this.mAudioManager = (AudioManager) this.reactContext.getSystemService(Context.AUDIO_SERVICE);
+	
+    this.afChangeListener = new AudioManager.OnAudioFocusChangeListener() {
+      @Override
+      public void onAudioFocusChange(int focusChange) {
+        switch (focusChange) {
+        case AudioManager.AUDIOFOCUS_GAIN:
+          // Set volume level to desired levels
+          break;
+        case AudioManager.AUDIOFOCUS_GAIN_TRANSIENT:
+          // You have audio focus for a short time
+          break;
+        case AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK:
+          // Play over existing audio
+          break;
+        case AudioManager.AUDIOFOCUS_LOSS:
+          break;
+        case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT:
+          // Temporary loss of audio focus - expect to get it back - you can keep your resources around
+          break;
+        case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK:
+          // Lower the volume
+          break;
+        }
+      }
+    };
+
+    this.duckAudioRequestBuilder = new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+    .setAudioAttributes(this.mPlaybackAttributes)
+    .setAcceptsDelayedFocusGain(false)
+    .setWillPauseWhenDucked(false)
+    .setOnAudioFocusChangeListener(this.afChangeListener)
+    .build();
   }
 
   @Override
@@ -74,9 +121,26 @@ public class RNSoundPlayerModule extends ReactContextBaseJavaModule {
   @ReactMethod
   public void resume() throws IOException, IllegalStateException {
     if (this.mediaPlayer != null) {
-      this.setVolume(this.volume);
-      this.mediaPlayer.start();
+      try {
+        this.mAudioManager.requestAudioFocus(this.duckAudioRequestBuilder);
+        this.setVolume(this.volume);
+        this.mediaPlayer.start();
+      }
+      catch(Exception e) {
+        //  Block of code to handle errors
+      }
     }
+  }
+
+  @ReactMethod
+  public void resetAudioVolume() {
+    if (this.mediaPlayer != null) {
+      this.mAudioManager.abandonAudioFocusRequest(this.duckAudioRequestBuilder);
+    }
+  }
+
+  private void setTrackReady (boolean isReady) {
+    this.isTrackReady = isReady;
   }
 
   @ReactMethod
@@ -105,8 +169,13 @@ public class RNSoundPlayerModule extends ReactContextBaseJavaModule {
   public void getInfo(
       Promise promise) {
     WritableMap map = Arguments.createMap();
-    map.putDouble("currentTime", this.mediaPlayer.getCurrentPosition() / 1000.0);
-    map.putDouble("duration", this.mediaPlayer.getDuration() / 1000.0);
+    if (this.mediaPlayer != null && this.isTrackReady == true){
+      map.putDouble("currentTime", this.mediaPlayer.getCurrentPosition() / 1000.0);
+      map.putDouble("duration", this.mediaPlayer.getDuration() / 1000.0);
+    } else {
+      map.putDouble("currentTime", 0);
+      map.putDouble("duration", 0);
+    }
     promise.resolve(map);
   }
 
@@ -119,6 +188,7 @@ public class RNSoundPlayerModule extends ReactContextBaseJavaModule {
   }
 
   private void mountSoundFile(String name, String type) throws IOException {
+    this.setTrackReady(false);
     if (this.mediaPlayer == null) {
       int soundResID = getReactApplicationContext().getResources().getIdentifier(name, "raw", getReactApplicationContext().getPackageName());
 
@@ -128,15 +198,17 @@ public class RNSoundPlayerModule extends ReactContextBaseJavaModule {
         this.mediaPlayer = MediaPlayer.create(getCurrentActivity(), this.getUriFromFile(name, type));
       }
 
-      this.mediaPlayer.setOnCompletionListener(
-        new OnCompletionListener() {
-          @Override
-          public void onCompletion(MediaPlayer arg0) {
-            WritableMap params = Arguments.createMap();
-            params.putBoolean("success", true);
-            sendEvent(getReactApplicationContext(), EVENT_FINISHED_PLAYING, params);
-          }
-      });
+      if (this.mediaPlayer != null) {
+        this.mediaPlayer.setOnCompletionListener(
+          new OnCompletionListener() {
+            @Override
+            public void onCompletion(MediaPlayer arg0) {
+              WritableMap params = Arguments.createMap();
+              params.putBoolean("success", true);
+              sendEvent(getReactApplicationContext(), EVENT_FINISHED_PLAYING, params);
+            }
+        });
+      }
     } else {
       Uri uri;
       int soundResID = getReactApplicationContext().getResources().getIdentifier(name, "raw", getReactApplicationContext().getPackageName());
@@ -152,14 +224,19 @@ public class RNSoundPlayerModule extends ReactContextBaseJavaModule {
       this.mediaPlayer.prepare();
     }
 
-    WritableMap params = Arguments.createMap();
-    params.putBoolean("success", true);
-    sendEvent(getReactApplicationContext(), EVENT_FINISHED_LOADING, params);
-    WritableMap onFinishedLoadingFileParams = Arguments.createMap();
-    onFinishedLoadingFileParams.putBoolean("success", true);
-    onFinishedLoadingFileParams.putString("name", name);
-    onFinishedLoadingFileParams.putString("type", type);
-    sendEvent(getReactApplicationContext(), EVENT_FINISHED_LOADING_FILE, onFinishedLoadingFileParams);
+    try {
+      WritableMap params = Arguments.createMap();
+      params.putBoolean("success", true);
+      sendEvent(getReactApplicationContext(), EVENT_FINISHED_LOADING, params);
+      WritableMap onFinishedLoadingFileParams = Arguments.createMap();
+      onFinishedLoadingFileParams.putBoolean("success", true);
+      onFinishedLoadingFileParams.putString("name", name);
+      onFinishedLoadingFileParams.putString("type", type);
+      sendEvent(getReactApplicationContext(), EVENT_FINISHED_LOADING_FILE, onFinishedLoadingFileParams);
+      this.setTrackReady(true);
+    } catch (Exception e) {
+
+    }
   }
 
   private Uri getUriFromFile(String name, String type) {

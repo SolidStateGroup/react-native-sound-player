@@ -13,11 +13,17 @@ let _finishedLoadingListener = null
 export default {
 
   playSoundFile: (name: string, type: string) => {
-    RNSoundPlayer.playSoundFile(name, type)
+      RNSoundPlayer.playSoundFile(name, type)
   },
 
   loadSoundFile: (name: string, type: string) => {
     RNSoundPlayer.loadSoundFile(name, type)
+  },
+
+  resetAudioVolume : () => {
+    setTimeout(() => {
+      RNSoundPlayer.resetAudioVolume()
+    }, 1000)
   },
 
   playUrl: (url: string) => {

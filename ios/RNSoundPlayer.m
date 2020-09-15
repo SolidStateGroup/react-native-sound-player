@@ -71,6 +71,10 @@ RCT_EXPORT_METHOD(seek:(float)seconds) {
         [self.avPlayer seekToTime: CMTimeMakeWithSeconds(seconds, 1.0)];
     }
 }
+	
+RCT_EXPORT_METHOD(resetAudioVolume) {
+    [[AVAudioSession sharedInstance] setActive:false error:nil];
+}
 
 RCT_EXPORT_METHOD(setSpeaker:(BOOL) on) {
     AVAudioSession *session = [AVAudioSession sharedInstance];
@@ -96,11 +100,13 @@ RCT_EXPORT_METHOD(setVolume:(float)volume) {
 RCT_REMAP_METHOD(getInfo,
                  getInfoWithResolver:(RCTPromiseResolveBlock) resolve
                  rejecter:(RCTPromiseRejectBlock) reject) {
+    BOOL audioPlayed = NO;
     if (self.player != nil) {
         NSDictionary *data = @{
                                @"currentTime": [NSNumber numberWithDouble:[self.player currentTime]],
                                @"duration": [NSNumber numberWithDouble:[self.player duration]]
                                };
+        audioPlayed = YES;
         resolve(data);
     }
     if (self.avPlayer != nil) {
@@ -110,6 +116,14 @@ RCT_REMAP_METHOD(getInfo,
                                @"currentTime": [NSNumber numberWithFloat:CMTimeGetSeconds(currentTime)],
                                @"duration": [NSNumber numberWithFloat:CMTimeGetSeconds(duration)]
                                };
+        audioPlayed = YES;
+        resolve(data);
+    }
+    if(audioPlayed == NO) {
+        NSDictionary *data = @{
+                                @"currentTime": @0,
+                                @"duration":  @0
+                                };
         resolve(data);
     }
 }
@@ -137,6 +151,7 @@ RCT_REMAP_METHOD(getInfo,
 
     NSURL *soundFileURL = [NSURL fileURLWithPath:soundFilePath];
     self.player = [[AVAudioPlayer alloc] initWithContentsOfURL:soundFileURL error:nil];
+    [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback withOptions:AVAudioSessionCategoryOptionDuckOthers error:nil];
     [self.player setDelegate:self];
     [self.player setNumberOfLoops:0];
     [self.player prepareToPlay];

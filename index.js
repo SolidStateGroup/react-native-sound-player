@@ -21,7 +21,7 @@ export default {
   },
 
   resetAudioVolume : () => {
-      RNSoundPlayer.resetAudioVolume()
+    RNSoundPlayer.resetAudioVolume()
   },
 
   playUrl: (url: string) => {

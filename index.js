@@ -21,9 +21,7 @@ export default {
   },
 
   resetAudioVolume : () => {
-    setTimeout(() => {
       RNSoundPlayer.resetAudioVolume()
-    }, 1000)
   },
 
   playUrl: (url: string) => {

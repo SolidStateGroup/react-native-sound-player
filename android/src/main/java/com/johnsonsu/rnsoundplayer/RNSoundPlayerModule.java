@@ -219,9 +219,14 @@ public class RNSoundPlayerModule extends ReactContextBaseJavaModule {
         uri = this.getUriFromFile(name, type);
       }
 
-      this.mediaPlayer.reset();
-      this.mediaPlayer.setDataSource(getCurrentActivity(), uri);
-      this.mediaPlayer.prepare();
+      // catch for audio files that does not exist
+      try {
+      	this.mediaPlayer.reset();
+      	this.mediaPlayer.setDataSource(getCurrentActivity(), uri);
+      	this.mediaPlayer.prepare();
+      } catch (Exception e) {
+
+      } 
     }
 
     try {

@@ -24,6 +24,7 @@ import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.Promise;
 
+import android.os.Build;
 
 public class RNSoundPlayerModule extends ReactContextBaseJavaModule {
 
@@ -40,48 +41,52 @@ public class RNSoundPlayerModule extends ReactContextBaseJavaModule {
   private AudioManager mAudioManager;
   private AudioManager.OnAudioFocusChangeListener afChangeListener;
   private AudioFocusRequest duckAudioRequestBuilder;
-  private AudioAttributes mPlaybackAttributes = new AudioAttributes.Builder()
-  .setUsage(AudioAttributes.USAGE_MEDIA)
-  .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-  .build();
+  private AudioAttributes mPlaybackAttributes;
 
   public RNSoundPlayerModule(ReactApplicationContext reactContext) {
     super(reactContext);
     this.reactContext = reactContext;
     this.volume = 1.0f;
-    this.mAudioManager = (AudioManager) this.reactContext.getSystemService(Context.AUDIO_SERVICE);
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      this.mAudioManager = (AudioManager) this.reactContext.getSystemService(Context.AUDIO_SERVICE);
 	
-    this.afChangeListener = new AudioManager.OnAudioFocusChangeListener() {
-      @Override
-      public void onAudioFocusChange(int focusChange) {
-        switch (focusChange) {
-        case AudioManager.AUDIOFOCUS_GAIN:
-          // Set volume level to desired levels
-          break;
-        case AudioManager.AUDIOFOCUS_GAIN_TRANSIENT:
-          // You have audio focus for a short time
-          break;
-        case AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK:
-          // Play over existing audio
-          break;
-        case AudioManager.AUDIOFOCUS_LOSS:
-          break;
-        case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT:
-          // Temporary loss of audio focus - expect to get it back - you can keep your resources around
-          break;
-        case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK:
-          // Lower the volume
-          break;
+      this.afChangeListener = new AudioManager.OnAudioFocusChangeListener() {
+        @Override
+        public void onAudioFocusChange(int focusChange) {
+          switch (focusChange) {
+          case AudioManager.AUDIOFOCUS_GAIN:
+            // Set volume level to desired levels
+            break;
+          case AudioManager.AUDIOFOCUS_GAIN_TRANSIENT:
+            // You have audio focus for a short time
+            break;
+          case AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK:
+            // Play over existing audio
+            break;
+          case AudioManager.AUDIOFOCUS_LOSS:
+            break;
+          case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT:
+            // Temporary loss of audio focus - expect to get it back - you can keep your resources around
+            break;
+          case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK:
+            // Lower the volume
+            break;
+          }
         }
-      }
-    };
-
-    this.duckAudioRequestBuilder = new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
-    .setAudioAttributes(this.mPlaybackAttributes)
-    .setAcceptsDelayedFocusGain(false)
-    .setWillPauseWhenDucked(false)
-    .setOnAudioFocusChangeListener(this.afChangeListener)
-    .build();
+      };
+  
+      this.mPlaybackAttributes = new AudioAttributes.Builder()
+      .setUsage(AudioAttributes.USAGE_MEDIA)
+      .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+      .build();
+  
+      this.duckAudioRequestBuilder = new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+      .setAudioAttributes(this.mPlaybackAttributes)
+      .setAcceptsDelayedFocusGain(false)
+      .setWillPauseWhenDucked(false)
+      .setOnAudioFocusChangeListener(this.afChangeListener)
+      .build();
+    }
   }
 
   @Override
@@ -122,7 +127,9 @@ public class RNSoundPlayerModule extends ReactContextBaseJavaModule {
   public void resume() throws IOException, IllegalStateException {
     if (this.mediaPlayer != null) {
       try {
-        this.mAudioManager.requestAudioFocus(this.duckAudioRequestBuilder);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+          this.mAudioManager.requestAudioFocus(this.duckAudioRequestBuilder);
+        }
         this.setVolume(this.volume);
         this.mediaPlayer.start();
       }
@@ -134,7 +141,7 @@ public class RNSoundPlayerModule extends ReactContextBaseJavaModule {
 
   @ReactMethod
   public void resetAudioVolume() {
-    if (this.mediaPlayer != null) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && this.mediaPlayer != null) {
       this.mAudioManager.abandonAudioFocusRequest(this.duckAudioRequestBuilder);
     }
   }

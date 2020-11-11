@@ -231,8 +231,9 @@ public class RNSoundPlayerModule extends ReactContextBaseJavaModule {
       	this.mediaPlayer.reset();
       	this.mediaPlayer.setDataSource(getCurrentActivity(), uri);
       	this.mediaPlayer.prepare();
+        this.setTrackReady(true);
       } catch (Exception e) {
-
+        this.setTrackReady(false); // used to return duration = 0 on getInfo
       } 
     }
 
@@ -245,7 +246,6 @@ public class RNSoundPlayerModule extends ReactContextBaseJavaModule {
       onFinishedLoadingFileParams.putString("name", name);
       onFinishedLoadingFileParams.putString("type", type);
       sendEvent(getReactApplicationContext(), EVENT_FINISHED_LOADING_FILE, onFinishedLoadingFileParams);
-      this.setTrackReady(true);
     } catch (Exception e) {
 
     }

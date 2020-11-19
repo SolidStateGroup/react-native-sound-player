@@ -127,9 +127,9 @@ public class RNSoundPlayerModule extends ReactContextBaseJavaModule {
   public void resume() throws IOException, IllegalStateException {
     if (this.mediaPlayer != null) {
       try {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-          this.mAudioManager.requestAudioFocus(this.duckAudioRequestBuilder);
-        }
+        // if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        //   this.mAudioManager.requestAudioFocus(this.duckAudioRequestBuilder);
+        // }
         this.setVolume(this.volume);
         this.mediaPlayer.start();
       }
@@ -141,9 +141,9 @@ public class RNSoundPlayerModule extends ReactContextBaseJavaModule {
 
   @ReactMethod
   public void resetAudioVolume() {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && this.mediaPlayer != null) {
-      this.mAudioManager.abandonAudioFocusRequest(this.duckAudioRequestBuilder);
-    }
+    // if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && this.mediaPlayer != null) {
+    //   this.mAudioManager.abandonAudioFocusRequest(this.duckAudioRequestBuilder);
+    // }
   }
 
   private void setTrackReady (boolean isReady) {
